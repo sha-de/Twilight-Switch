@@ -1,0 +1,171 @@
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h> 
+#include <time.h>
+
+double pi = 3.14159;
+double rads;
+double L,g,daylen;
+double SunDia = 0.53;     // Sunradius degrees
+double AirRefr = 34.0/60.0; // athmospheric refraction degrees //
+double y,m,day,h,latit,longit;
+
+double tzone,d,lambda;
+double obliq,alpha,delta,LL,equation,ha,hb,twx;
+double twam,altmax,noont,settm,riset,twpm;
+
+time_t sekunnit;
+struct tm *p;
+
+double FNday (int y, int m, int d, float h) {
+long int luku = - 7 * (y + (m + 9)/12)/4 + 275*m/9 + d;
+luku+= (long int)y*367;
+return (double)luku - 730531.5 + h/24.0;
+};
+double FNrange (double x) {
+    double b = 0.5*x / pi;
+    double a = 2.0*pi * (b - (long)(b));
+    if (a < 0) a = 2.0*pi + a;
+    return a;
+};
+double f0(double lat, double declin) {
+double fo,dfo;
+dfo = rads*(0.5*SunDia + AirRefr); if (lat < 0.0) dfo = -dfo;
+fo = tan(declin + dfo) * tan(lat*rads);
+if (fo>0.99999) fo=1.0; // to avoid overflow //
+fo = asin(fo) + pi/2.0;
+return fo;
+};
+double f1(double lat, double declin) {
+double fi,df1;
+df1 = rads * 6.0; if (lat < 0.0) df1 = -df1;
+fi = tan(declin + df1) * tan(lat*rads);
+if (fi>0.99999) fi=1.0; // to avoid overflow //
+fi = asin(fi) + pi/2.0;
+return fi;
+};
+double FNsun (double d) {
+L = FNrange(280.461 * rads + .9856474 * rads * d);
+g = FNrange(357.528 * rads + .9856003 * rads * d);
+return FNrange(L + 1.915 * rads * sin(g) + .02 * rads * sin(2 * g));
+};
+void showhrmn(double dhr) {
+int hr,mn;
+hr=(int) dhr;
+mn = (dhr - (double) hr)*60;
+
+printf("%0d:%0d",hr,mn);
+};
+double calc(double inlat, double inlon, double intz, int date, int month, int year){
+
+rads = pi/180.0;
+
+ latit = (double)inlat; longit = (double)inlon;
+ tzone = (double)intz;
+ 
+ time(&sekunnit);
+p=localtime(&sekunnit);
+//y = p->tm_year;
+ y=year;
+ y+= 1900;
+ //m = p->tm_mon + 1;
+ m=month;
+ //day = p->tm_mday;
+ day=date;
+ h = 12;
+d = FNday(y, m, day, h);
+lambda = FNsun(d);
+obliq = 23.439 * rads - .0000004 * rads * d;
+alpha = atan2(cos(obliq) * sin(lambda), cos(lambda));
+delta = asin(sin(obliq) * sin(lambda));
+LL = L - alpha;
+if (L < pi) LL += 2.0*pi;
+equation = 1440.0 * (1.0 - LL / pi/2.0);
+ha = f0(latit,delta);
+hb = f1(latit,delta);
+twx = hb - ha;	// length of twilight in radians
+twx = 12.0*twx/pi;		// length of twilight in hours
+//printf("ha= %.2f   hb= %.2f \n",ha,hb);
+riset = 12.0 - 12.0 * ha/pi + tzone - longit/15.0 + equation/60.0;
+settm = 12.0 + 12.0 * ha/pi + tzone - longit/15.0 + equation/60.0;
+twam = riset - twx;	// morning twilight begin
+twpm = settm + twx;	// evening twilight end
+
+if (riset > 24.0) riset-= 24.0;
+if (settm > 24.0) settm-= 24.0;
+
+printf("\n The date is: %d - %d - %d",(int)day,(int)m,(int)y);
+
+
+printf("\n\nCivil twilight: ");
+showhrmn(twam); puts("");
+printf("Sunrise       : ");
+showhrmn(riset); puts("");
+
+printf("Sunset        : ");
+showhrmn(settm);  puts("");
+printf("Civil twilight: ");
+showhrmn(twpm);  puts("\n");
+
+return (int)day;
+
+}
+
+
+int main(void){
+	
+float inlat,inlon,intz;
+double retdate;
+float date,month,year;
+int retmonth;
+ printf("Input latitude, longitude and timezone\n");
+ scanf("%f", &inlat); scanf("%f", &inlon); 
+ scanf("%f", &intz);
+ 
+ printf("\nEnter the date\n");
+ scanf("%f",&date); scanf("%f",&month);
+ scanf("%f",&year);
+
+//day = p->tm_mday;
+retdate=calc(inlat,inlon,intz,(int)date,(int)month,(int)year);
+retmonth=(int)m;
+switch(retmonth){
+	case 1:
+	case 3:
+	case 5:
+	case 7:
+	case 8:
+	case 10:
+	case 12:while((int)retdate<31){
+		(int)retdate++;
+		calc(inlat,inlon,intz,(int)retdate,(int)month,(int)year);
+	}
+		break;
+	
+	case 2:if(((int)y)%400==0){
+	while((int)retdate<29){
+		(int)retdate++;
+		calc(inlat,inlon,intz,(int)retdate,(int)month,(int)year);
+		 }
+      }else{
+       while((int)retdate<28){
+		(int)retdate++;
+		calc(inlat,inlon,intz,(int)retdate,(int)month,(int)year);
+		}}
+		break;
+	
+	case 4:
+	case 6:
+	case 9:
+	case 11: 
+	while((int)retdate<30){
+		(int)retdate++;
+		calc(inlat,inlon,intz,(int)retdate,(int)month,(int)year);
+		}        
+		break;
+	default: printf("Error");
+	
+}
+
+return 0;
+}
